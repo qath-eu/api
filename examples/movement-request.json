@@ -1,0 +1,14 @@
+{
+  "started_at": "2026-09-29T06:12:00Z",
+  "ended_at": "2026-09-29T08:04:00Z",
+  "origin": {
+    "latitude": 52.6612,
+    "longitude": 6.7418
+  },
+  "destination": {
+    "latitude": 52.6424,
+    "longitude": 6.6219
+  },
+  "distance_km": 40,
+  "has_cargo": false
+}

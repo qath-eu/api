@@ -1,0 +1,10 @@
+{
+  "movement_id": "45612368-bd12-44f0-a523-4b530ed8e2f1",
+  "carrier_id": "b00330e9-900f-455e-9141-d737bba82b88",
+  "started_at": "2026-09-29T06:12:00Z",
+  "ended_at": "2026-09-29T08:04:00Z",
+  "origin_h3": "85283473fffffff",
+  "destination_h3": "85283477fffffff",
+  "distance_km": 40,
+  "has_cargo": false
+}

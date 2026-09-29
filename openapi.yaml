@@ -1,0 +1,231 @@
+openapi: 3.1.0
+
+info:
+  title: qath API
+  version: 0.1.0
+  description: Open standard for verified, privacy-preserving road freight movement data.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://api.qath.eu
+
+tags:
+  - name: Movements
+    description: Verified road freight movements.
+
+paths:
+  /movements:
+    post:
+      tags:
+        - Movements
+      summary: Submit a verified movement
+      description: |
+        Submits one verified road freight movement to qath.
+
+        A movement must represent an actual vehicle movement that has already
+        been verified by the submitting system.
+
+        The authenticated bearer token identifies the carrier.
+
+        qath converts the submitted origin and destination coordinates to
+        H3 resolution 5 cells before storing the movement. Raw coordinates are
+        not part of the stored movement record.
+
+        Accepted movements are immutable.
+
+        Every request must include an Idempotency-Key. The same key must be
+        reused when retrying the same movement submission.
+      operationId: createMovement
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: |
+            Client-generated UUID used to make retries safe.
+
+            Reusing the same key with the same payload returns the original
+            movement_id. Reusing the same key with a different payload results
+            in a conflict.
+          schema:
+            type: string
+            format: uuid
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Movement"
+            example:
+              started_at: "2026-09-29T06:12:00Z"
+              ended_at: "2026-09-29T08:04:00Z"
+              origin:
+                latitude: 52.6612
+                longitude: 6.7418
+              destination:
+                latitude: 52.6424
+                longitude: 6.6219
+              distance_km: 40
+              has_cargo: false
+
+      responses:
+        "201":
+          description: Movement accepted and created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovementCreated"
+              example:
+                movement_id: "45612368-bd12-44f0-a523-4b530ed8e2f1"
+
+        "200":
+          description: |
+            The same Idempotency-Key and payload were already accepted.
+            The original movement_id is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovementCreated"
+              example:
+                movement_id: "45612368-bd12-44f0-a523-4b530ed8e2f1"
+
+        "400":
+          description: Invalid movement or malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "invalid_movement"
+                message: "ended_at must be later than started_at."
+
+        "401":
+          description: Missing or invalid authentication.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "unauthorized"
+                message: "A valid bearer token is required."
+
+        "409":
+          description: |
+            The Idempotency-Key was already used with a different payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "idempotency_conflict"
+                message: "This Idempotency-Key was already used with a different payload."
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Bearer token issued by qath. The token identifies the participating
+        carrier submitting the movement.
+
+  schemas:
+    Movement:
+      type: object
+      additionalProperties: false
+
+      required:
+        - started_at
+        - ended_at
+        - origin
+        - destination
+        - distance_km
+        - has_cargo
+
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          pattern: "Z$"
+          description: Actual start time of the movement in UTC.
+
+        ended_at:
+          type: string
+          format: date-time
+          pattern: "Z$"
+          description: Actual end time of the movement in UTC.
+
+        origin:
+          $ref: "#/components/schemas/Location"
+
+        destination:
+          $ref: "#/components/schemas/Location"
+
+        distance_km:
+          type: integer
+          minimum: 0
+          description: Actual driven distance, rounded to whole kilometres.
+
+        has_cargo:
+          type: boolean
+          description: |
+            true when cargo is being transported.
+
+            false when no cargo is being transported, including a truck
+            without a trailer or a truck pulling an empty trailer.
+
+    Location:
+      type: object
+      additionalProperties: false
+
+      required:
+        - latitude
+        - longitude
+
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude in decimal degrees.
+
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude in decimal degrees.
+
+    MovementCreated:
+      type: object
+      additionalProperties: false
+
+      required:
+        - movement_id
+
+      properties:
+        movement_id:
+          type: string
+          format: uuid
+          description: Unique identifier generated by qath for the accepted movement.
+
+    Error:
+      type: object
+      additionalProperties: false
+
+      required:
+        - error
+        - message
+
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code.
+
+        message:
+          type: string
+          description: Human-readable description of the error.
